@@ -1,0 +1,82 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Voice Detector: Detect Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 640px; margin: 30px auto; padding: 0 16px; }
+    button { padding: 8px 18px; font-size: 16px; cursor: pointer; }
+    pre { background: #f2f2f2; padding: 12px; overflow-x: auto; border-radius: 6px; }
+    .box { margin-top: 16px; padding: 12px; border: 1px solid #ccc; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h2>Voice Detector: Detect Test</h2>
+  <p>1. Choose an audio file. 2. Click Detect.</p>
+
+  <input type="file" id="file" accept=".wav,.mp3,.flac,.ogg,.m4a,.webm">
+  <button id="btn">Detect</button>
+
+  <div class="box" id="summary">Nothing sent yet.</div>
+  <h3>Full server reply</h3>
+  <pre id="out"></pre>
+
+  <script>
+    const URL = "http://127.0.0.1:5000/api/detect";
+
+    document.getElementById("btn").onclick = async () => {
+      const file = document.getElementById("file").files[0];
+      const summary = document.getElementById("summary");
+      const out = document.getElementById("out");
+
+      if (!file) {
+        summary.textContent = "Please choose a file first.";
+        return;
+      }
+
+      const form = new FormData();
+      form.append("audio", file);
+
+      summary.textContent = "Sending...";
+      out.textContent = "";
+
+      const start = performance.now();
+
+      try {
+        const res = await fetch(URL, {
+          method: "POST",
+          body: form
+        });
+
+        const roundTrip = performance.now() - start;
+        const body = await res.json();
+
+        let text = "HTTP status: " + res.status + "\n" +
+                   "Round-trip time: " + roundTrip.toFixed(1) + " ms\n";
+
+        if (body.timing) {
+          text += "Decode: " + body.timing.decode_ms + " ms\n" +
+                  "Features: " + body.timing.feature_ms + " ms\n" +
+                  "Server total: " + body.timing.server_total_ms + " ms\n" +
+                  "Network + browser time: " +
+                  (roundTrip - body.timing.server_total_ms).toFixed(1) + " ms\n";
+        }
+
+        if (body.audio) {
+          text += "Duration: " + body.audio.duration_sec +
+                  " s, sample rate: " + body.audio.sample_rate +
+                  " Hz, features: " + body.audio.feature_count + "\n";
+        }
+
+        summary.innerText = text;
+        out.textContent = JSON.stringify(body, null, 2);
+
+      } catch (err) {
+        summary.textContent =
+          "Could not reach the server. Is python app.py running? (" + err + ")";
+      }
+    };
+  </script>
+</body>
+</html>
